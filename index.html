@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>野球成績管理</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0d0f12;
+  --bg2: #141720;
+  --bg3: #1c2030;
+  --border: #2a2f40;
+  --border2: #3a4055;
+  --text: #e8eaf0;
+  --text2: #8890a8;
+  --text3: #555d75;
+  --accent: #4f9fff;
+  --accent2: #1a3a6a;
+  --green: #3ddc84;
+  --green-bg: #0d2a1a;
+  --red: #ff5f5f;
+  --red-bg: #2a0d0d;
+  --yellow: #ffc940;
+  --yellow-bg: #2a1f00;
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'Noto Sans JP', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; }
+.layout { display: flex; height: 100vh; overflow: hidden; }
+.sidebar { width: 220px; min-width: 220px; background: var(--bg2); border-right: 1px solid var(--border); display: flex; flex-direction: column; }
+.logo { padding: 20px 20px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+.logo-icon { width: 32px; height: 32px; background: var(--accent2); border: 1px solid var(--accent); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.logo-text { font-size: 13px; font-weight: 700; letter-spacing: 0.05em; }
+.logo-sub { font-size: 10px; color: var(--text3); font-family: var(--mono); }
+.nav { padding: 12px 8px; flex: 1; }
+.nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 6px; cursor: pointer; color: var(--text2); font-size: 13px; transition: all 0.15s; margin-bottom: 2px; }
+.nav-item:hover { background: var(--bg3); color: var(--text); }
+.nav-item.active { background: var(--accent2); color: var(--accent); font-weight: 500; }
+.nav-icon { font-size: 15px; width: 18px; text-align: center; }
+.nav-badge { margin-left: auto; background: var(--border); color: var(--text3); font-size: 10px; font-family: var(--mono); padding: 2px 6px; border-radius: 10px; }
+.nav-item.active .nav-badge { background: var(--accent2); color: var(--accent); border: 1px solid var(--accent); }
+.sidebar-footer { padding: 12px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text3); font-family: var(--mono); text-align: center; }
+.main { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+.topbar { background: var(--bg2); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; gap: 12px; position: sticky; top: 0; z-index: 10; }
+.topbar-title { font-size: 15px; font-weight: 700; }
+.topbar-sub { font-size: 12px; color: var(--text3); font-family: var(--mono); margin-left: auto; }
+.content { padding: 24px; flex: 1; }
+.card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 16px; }
+.card-title { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); margin-bottom: 14px; font-family: var(--mono); }
+
+/* URL取得エリア */
+.url-fetch-area { margin-bottom: 16px; }
+.url-row { display: flex; gap: 8px; align-items: stretch; }
+.url-input { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: var(--mono); font-size: 12px; padding: 10px 12px; outline: none; transition: border-color 0.15s; }
+.url-input:focus { border-color: var(--accent); }
+.url-input::placeholder { color: var(--text3); }
+
+/* プロンプト生成結果 */
+.prompt-result { margin-top: 12px; display: none; }
+.prompt-result.show { display: block; }
+.prompt-box { background: var(--bg); border: 1px solid var(--border2); border-radius: 6px; padding: 14px; font-family: var(--mono); font-size: 11px; color: var(--text2); line-height: 1.7; white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow-y: auto; }
+.prompt-actions { display: flex; gap: 8px; margin-top: 10px; align-items: center; }
+.copy-hint { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+
+/* 手順ガイド */
+.flow { display: flex; align-items: center; gap: 0; margin-bottom: 16px; flex-wrap: wrap; gap: 4px; }
+.flow-step { background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 8px 14px; font-size: 12px; color: var(--text2); display: flex; align-items: center; gap: 6px; }
+.flow-step .step-num { width: 18px; height: 18px; background: var(--accent2); border: 1px solid var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-family: var(--mono); color: var(--accent); font-weight: 700; flex-shrink: 0; }
+.flow-arrow { color: var(--text3); font-size: 16px; padding: 0 2px; }
+
+.import-area { border: 1px dashed var(--border2); border-radius: 8px; padding: 20px; margin-bottom: 16px; }
+.import-label { font-size: 12px; color: var(--text2); margin-bottom: 8px; }
+.import-textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-family: var(--mono); font-size: 11px; padding: 12px; resize: vertical; min-height: 100px; outline: none; transition: border-color 0.15s; line-height: 1.5; }
+.import-textarea:focus { border-color: var(--accent); }
+.import-textarea::placeholder { color: var(--text3); }
+.btn { background: transparent; border: 1px solid var(--border2); border-radius: 6px; color: var(--text2); padding: 8px 16px; font-size: 13px; font-family: var(--sans); cursor: pointer; transition: all 0.15s; }
+.btn:hover { background: var(--bg3); color: var(--text); }
+.btn-primary { background: var(--accent2); border-color: var(--accent); color: var(--accent); font-weight: 500; }
+.btn-primary:hover { background: #1e4a8a; }
+.btn-success { background: var(--green-bg); border-color: var(--green); color: var(--green); font-weight: 500; }
+.btn-danger { border-color: #3a1a1a; color: var(--red); }
+.btn-danger:hover { background: var(--red-bg); }
+.btn-sm { padding: 5px 12px; font-size: 12px; }
+.status { font-size: 12px; font-family: var(--mono); padding: 8px 12px; border-radius: 6px; margin-top: 10px; display: none; }
+.status.error { background: var(--red-bg); color: var(--red); border: 1px solid #4a1a1a; display: block; }
+.status.success { background: var(--green-bg); color: var(--green); border: 1px solid #1a4a2a; display: block; }
+.status.info { background: var(--bg3); color: var(--text2); display: block; }
+.game-row { display: flex; align-items: center; padding: 12px 16px; border-radius: 8px; background: var(--bg3); border: 1px solid var(--border); margin-bottom: 8px; gap: 12px; }
+.game-row:hover { border-color: var(--border2); }
+.game-vs { flex: 1; }
+.game-title-row { font-size: 13px; font-weight: 500; margin-bottom: 2px; }
+.game-meta-row { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+.game-score-box { font-family: var(--mono); font-size: 18px; font-weight: 500; color: var(--text); min-width: 70px; text-align: center; }
+.badge { font-size: 10px; font-family: var(--mono); padding: 2px 8px; border-radius: 4px; font-weight: 500; }
+.badge-win { background: var(--green-bg); color: var(--green); border: 1px solid #1a3d25; }
+.badge-loss { background: var(--red-bg); color: var(--red); border: 1px solid #3d1a1a; }
+.stats-wrap { overflow-x: auto; }
+.stats-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.stats-table thead th { background: var(--bg3); padding: 8px 10px; text-align: right; color: var(--text3); font-family: var(--mono); font-size: 10px; letter-spacing: 0.05em; white-space: nowrap; border-bottom: 1px solid var(--border); font-weight: 500; }
+.stats-table thead th:first-child { text-align: left; min-width: 90px; }
+.stats-table tbody td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--border); font-family: var(--mono); color: var(--text2); white-space: nowrap; }
+.stats-table tbody td:first-child { text-align: left; }
+.stats-table tbody td.name-cell { color: var(--text); font-family: var(--sans); }
+.stats-table.has-total tbody tr:last-child td { background: var(--bg3); color: var(--text); font-weight: 500; border-top: 1px solid var(--border2); }
+.stats-table tbody tr:hover td { background: rgba(79,159,255,0.04); }
+.stats-table.has-total tbody tr:hover:last-child td { background: var(--bg3); }
+.highlight-avg { color: var(--yellow) !important; }
+.highlight-era { color: var(--green) !important; }
+.team-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+.team-tab { padding: 5px 14px; border-radius: 5px; border: 1px solid var(--border); background: transparent; color: var(--text3); font-size: 12px; cursor: pointer; font-family: var(--sans); transition: all 0.15s; }
+.team-tab:hover { border-color: var(--border2); color: var(--text2); }
+.team-tab.active { background: var(--accent2); border-color: var(--accent); color: var(--accent); font-weight: 500; }
+.metrics { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; margin-bottom: 16px; }
+.metric { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+.metric-label { font-size: 10px; font-family: var(--mono); color: var(--text3); letter-spacing: 0.08em; margin-bottom: 6px; text-transform: uppercase; }
+.metric-value { font-size: 26px; font-weight: 700; font-family: var(--mono); color: var(--text); }
+.metric-sub { font-size: 10px; color: var(--text3); font-family: var(--mono); margin-top: 3px; }
+.innings-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 12px; }
+.innings-table th, .innings-table td { padding: 6px 10px; text-align: center; border: 1px solid var(--border); font-family: var(--mono); }
+.innings-table th { background: var(--bg3); color: var(--text3); font-size: 10px; }
+.innings-table td:first-child { text-align: left; font-family: var(--sans); color: var(--text); min-width: 120px; }
+.innings-table .total-col { background: var(--bg3); font-weight: 500; }
+.empty { text-align: center; padding: 40px; color: var(--text3); font-family: var(--mono); font-size: 13px; }
+.game-filter { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+.game-filter-btn { padding: 4px 12px; border: 1px solid var(--border); border-radius: 4px; background: transparent; color: var(--text3); font-size: 11px; font-family: var(--mono); cursor: pointer; transition: all 0.15s; }
+.game-filter-btn:hover { border-color: var(--border2); color: var(--text2); }
+.game-filter-btn.active { background: var(--accent2); border-color: var(--accent); color: var(--accent); }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+.divider { height: 1px; background: var(--border); margin: 16px 0; }
+.section-label { font-size: 11px; color: var(--text3); font-family: var(--mono); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 10px; }
+
+/* ===== モバイル対応 ===== */
+.mobile-tabbar {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  background: var(--bg2);
+  border-top: 1px solid var(--border);
+  z-index: 100;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.mobile-tabbar-inner {
+  display: flex;
+  height: 56px;
+}
+.mobile-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  cursor: pointer;
+  color: var(--text3);
+  font-size: 9px;
+  font-family: var(--sans);
+  border: none;
+  background: transparent;
+  transition: color 0.15s;
+  padding: 0;
+}
+.mobile-tab.active { color: var(--accent); }
+.mobile-tab-icon { font-size: 18px; line-height: 1; }
+.mobile-tab-badge {
+  position: absolute;
+  top: 6px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 9px;
+  font-family: var(--mono);
+  border-radius: 8px;
+  padding: 1px 4px;
+  min-width: 16px;
+  text-align: center;
+}
+
+@media (max-width: 700px) {
+  .sidebar { display: none; }
+  .mobile-tabbar { display: block; }
+  .layout { flex-direction: column; height: 100dvh; }
+  .main { flex: 1; overflow-y: auto; padding-bottom: 56px; }
+  .topbar { padding: 12px 16px; }
+  .topbar-sub { font-size: 11px; }
+  .content { padding: 12px; }
+  .card { padding: 14px; border-radius: 8px; }
+  .metrics { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 8px; }
+  .metric-value { font-size: 22px; }
+  .game-row { padding: 10px 12px; gap: 8px; }
+  .game-score-box { font-size: 16px; min-width: 55px; }
+  .game-title-row { font-size: 12px; }
+  .stats-table { font-size: 11px; }
+  .stats-table thead th { padding: 6px 7px; font-size: 9px; }
+  .stats-table tbody td { padding: 6px 7px; }
+  .url-row { flex-direction: column; }
+  .import-area { padding: 14px; }
+  .team-tabs { gap: 4px; }
+  .team-tab { padding: 4px 10px; font-size: 11px; }
+  .game-filter-btn { padding: 4px 9px; font-size: 10px; }
+  .prompt-box { font-size: 10px; }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+  <div class="sidebar">
+    <div class="logo">
+      <div class="logo-icon">⚾</div>
+      <div>
+        <div class="logo-text">BASEBALL</div>
+        <div class="logo-sub">成績管理システム</div>
+      </div>
+    </div>
+    <nav class="nav">
+      <div class="nav-item active" onclick="switchPage('import')" id="nav-import"><span class="nav-icon">＋</span> データ登録</div>
+      <div class="nav-item" onclick="switchPage('games')" id="nav-games"><span class="nav-icon">📋</span> 試合一覧 <span class="nav-badge" id="badge-games">0</span></div>
+      <div class="nav-item" onclick="switchPage('batting')" id="nav-batting"><span class="nav-icon">🏏</span> 打撃成績</div>
+      <div class="nav-item" onclick="switchPage('pitching')" id="nav-pitching"><span class="nav-icon">⚡</span> 投手成績</div>
+      <div class="nav-item" onclick="switchPage('summary')" id="nav-summary"><span class="nav-icon">📊</span> 大会通算</div>
+      <div class="nav-item" onclick="switchPage('ranking')" id="nav-ranking"><span class="nav-icon">🏆</span> 大会全体</div>
+    </nav>
+    <div class="sidebar-footer">v2.0 · localStorage使用</div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="topbar-title" id="topbar-title">データ登録</div>
+      <div class="topbar-sub" id="topbar-sub">0試合登録済み</div>
+    </div>
+    <div class="content">
+
+      <!-- Import page -->
+      <div id="page-import">
+
+        <!-- STEP 1: URL入力 -->
+        <div class="card">
+          <div class="card-title">Step 1 — 一球速報のURLを入力</div>
+          <div class="url-row">
+            <input class="url-input" id="urlInput" type="text" placeholder="https://baseball.omyutech.com/CupHomePageSeiseki.action?gameId=..." />
+            <button class="btn btn-primary" onclick="generatePrompt()">プロンプト生成</button>
+          </div>
+
+          <div class="prompt-result" id="promptResult">
+            <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin:10px 0 6px">↓ これをコピーしてClaudeに貼り付ける</div>
+            <div class="prompt-box" id="promptBox"></div>
+            <div class="prompt-actions">
+              <button class="btn btn-success btn-sm" onclick="copyPrompt()" id="copyBtn">📋 コピー</button>
+              <span class="copy-hint" id="copyHint"></span>
+            </div>
+          </div>
+        </div>
+
+        <!-- STEP 2: JSONを貼り付け -->
+        <div class="card">
+          <div class="card-title">Step 2 — ClaudeからJSONを貼り付けて登録</div>
+          <div class="import-area">
+            <div class="import-label">ClaudeがJSON出力したらここに貼り付け</div>
+            <textarea class="import-textarea" id="jsonInput" placeholder='{ "gameId": "...", "homeTeam": "...", ... }'></textarea>
+            <div style="margin-top:10px;display:flex;gap:8px">
+              <button class="btn btn-primary" onclick="registerGame()">登録する</button>
+              <button class="btn btn-sm" onclick="loadSample()">サンプルを読み込む</button>
+            </div>
+            <div class="status" id="importStatus"></div>
+          </div>
+        </div>
+
+        <!-- 登録済み -->
+        <div class="card">
+          <div class="card-title">登録済み試合 <span id="game-count-import" style="color:var(--accent);font-family:var(--mono)">(0試合)</span></div>
+          <div id="import-game-list"><div class="empty">まだ試合が登録されていません</div></div>
+        </div>
+      </div>
+
+      <!-- Games page -->
+      <div id="page-games" style="display:none">
+        <div id="games-content"><div class="empty">試合データがありません</div></div>
+      </div>
+
+      <!-- Batting page -->
+      <div id="page-batting" style="display:none">
+        <div class="card">
+          <div class="card-title">チーム</div>
+          <div class="team-tabs" id="batting-team-tabs"></div>
+          <div class="card-title" style="margin-top:12px">試合絞り込み</div>
+          <div class="game-filter" id="batting-game-filter"></div>
+        </div>
+        <div class="card">
+          <div class="stats-wrap" id="batting-table-wrap"><div class="empty">データなし</div></div>
+        </div>
+      </div>
+
+      <!-- Pitching page -->
+      <div id="page-pitching" style="display:none">
+        <div class="card">
+          <div class="card-title">チーム</div>
+          <div class="team-tabs" id="pitching-team-tabs"></div>
+          <div class="card-title" style="margin-top:12px">試合絞り込み</div>
+          <div class="game-filter" id="pitching-game-filter"></div>
+        </div>
+        <div class="card">
+          <div class="stats-wrap" id="pitching-table-wrap"><div class="empty">データなし</div></div>
+        </div>
+      </div>
+
+      <!-- Summary page -->
+      <div id="page-summary" style="display:none">
+        <div class="card">
+          <div class="card-title">チーム</div>
+          <div class="team-tabs" id="summary-team-tabs"></div>
+        </div>
+        <div id="summary-content"></div>
+        <!-- 野手フィルター -->
+        <div id="summary-bat-filters" style="display:none;margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span style="font-size:11px;color:var(--text3);font-family:var(--mono)">最低打数</span>
+            <div class="game-filter" id="summary-bat-min-filter"></div>
+            <span style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-left:8px">並び順</span>
+            <div class="game-filter" id="summary-bat-sort-filter"></div>
+          </div>
+        </div>
+        <div class="card" id="summary-bat-table-card" style="display:none">
+          <div class="card-title">野手陣まとめ</div>
+          <div class="stats-wrap" id="summary-bat-table-wrap"></div>
+        </div>
+        <!-- 投手フィルター -->
+        <div id="summary-pit-filters" style="display:none;margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <span style="font-size:11px;color:var(--text3);font-family:var(--mono)">並び順</span>
+            <div class="game-filter" id="summary-pit-sort-filter"></div>
+          </div>
+        </div>
+        <div class="card" id="summary-pit-table-card" style="display:none">
+          <div class="card-title">投手陣まとめ</div>
+          <div class="stats-wrap" id="summary-pit-table-wrap"></div>
+        </div>
+      </div>
+
+      <!-- Ranking page -->
+      <div id="page-ranking" style="display:none">
+        <div class="card">
+          <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <div class="game-filter" id="ranking-type-filter" style="margin-bottom:0"></div>
+            <div style="width:1px;height:20px;background:var(--border);flex-shrink:0"></div>
+            <span style="font-size:11px;color:var(--text3);font-family:var(--mono);white-space:nowrap" id="ranking-filter-label">最低打数</span>
+            <div class="game-filter" id="ranking-sub-filter" style="margin-bottom:0"></div>
+            <div style="width:1px;height:20px;background:var(--border);flex-shrink:0" id="ranking-sort-divider"></div>
+            <span style="font-size:11px;color:var(--text3);font-family:var(--mono);white-space:nowrap" id="ranking-sort-label">並び順</span>
+            <div class="game-filter" id="ranking-sort-filter" style="margin-bottom:0"></div>
+          </div>
+        </div>
+        <div class="card" id="ranking-table-card">
+          <div class="stats-wrap" id="ranking-table-wrap"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- モバイル用タブバー -->
+<div class="mobile-tabbar">
+  <div class="mobile-tabbar-inner">
+    <button class="mobile-tab active" onclick="switchPage('import')" id="mob-import">
+      <span class="mobile-tab-icon">＋</span><span>登録</span>
+    </button>
+    <button class="mobile-tab" onclick="switchPage('games')" id="mob-games">
+      <span style="position:relative;display:inline-block">
+        <span class="mobile-tab-icon">📋</span>
+        <span class="mobile-tab-badge" id="mob-badge-games">0</span>
+      </span>
+      <span>試合</span>
+    </button>
+    <button class="mobile-tab" onclick="switchPage('batting')" id="mob-batting">
+      <span class="mobile-tab-icon">🏏</span><span>打撃</span>
+    </button>
+    <button class="mobile-tab" onclick="switchPage('pitching')" id="mob-pitching">
+      <span class="mobile-tab-icon">⚡</span><span>投手</span>
+    </button>
+    <button class="mobile-tab" onclick="switchPage('summary')" id="mob-summary">
+      <span class="mobile-tab-icon">📊</span><span>通算</span>
+    </button>
+    <button class="mobile-tab" onclick="switchPage('ranking')" id="mob-ranking">
+      <span class="mobile-tab-icon">🏆</span><span>全体</span>
+    </button>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = 'baseball_v3';
+let games = [];
+let state = { page:'import', battingTeam:'', battingGame:'all', pitchingTeam:'', pitchingGame:'all', summaryTeam:'', summaryBatSort:'avg', summaryPitSort:'era', summaryBatMin:0, rankingType:'batting', rankingBatSort:'avg', rankingBatMin:0, rankingPitSort:'era', rankingPitMin:0, rankingTeamSort:'wins' };
+
+// JSON形式の定義（プロンプトに埋め込む）
+const JSON_SCHEMA = `{
+  "gameId": "数字のID（URLのgameId=の値）",
+  "tournament": "大会名",
+  "date": "YYYY-MM-DD",
+  "venue": "球場名",
+  "homeTeam": "ホームチーム名",
+  "awayTeam": "ビジターチーム名",
+  "homeScore": 数値,
+  "awayScore": 数値,
+  "innings": {
+    "home": [各回の得点を数値の配列],
+    "away": [各回の得点を数値の配列]
+  },
+  "homeBatting": [
+    {"pos":"守備位置","name":"選手名","ab":打数,"r":得点,"h":安打,"b1":単打数,"b2":二塁打数,"b3":三塁打数,"rbi":打点,"avg":"打率文字列","hr":本塁打,"k":三振,"bb":四球,"hbp":死球,"sf":犠飛,"sb":盗塁,"lob":残塁,"e":失策,"po":刺殺,"a":補殺}
+  ],
+  "awayBatting": [同上],
+  "homePitching": [
+    {"name":"選手名","result":"○か●か空文字","era":"防御率文字列","ip":"投球回文字列","bf":打者数,"np":球数,"h":安打,"hr":本塁打,"sac":犠打,"sf":犠飛,"k":三振,"bb":四球,"hbp":死球,"r":失点,"er":自責点,"wp":暴投}
+  ],
+  "awayPitching": [同上],
+  "notes": {
+    "homeErrors": "失策の説明",
+    "awayErrors": "失策の説明",
+    "homeSteals": "盗塁の説明",
+    "awaySteals": "盗塁の説明"
+  }
+}`;
+
+function generatePrompt() {
+  const url = document.getElementById('urlInput').value.trim();
+  if (!url) {
+    document.getElementById('urlInput').focus();
+    return;
+  }
+  if (!url.includes('omyutech.com')) {
+    alert('一球速報（baseball.omyutech.com）のURLを入力してください');
+    return;
+  }
+
+  // SeisekiのURLに変換
+  let seisekiUrl = url;
+  const gameIdMatch = url.match(/gameId=(\d+)/);
+  if (gameIdMatch && !url.includes('CupHomePageSeiseki')) {
+    seisekiUrl = `https://baseball.omyutech.com/CupHomePageSeiseki.action?gameId=${gameIdMatch[1]}`;
+  }
+
+  const prompt = `以下のURLの野球成績データを、指定のJSON形式で出力してください。
+
+URL: ${seisekiUrl}
+
+【出力形式】
+\`\`\`json
+${JSON_SCHEMA}
+\`\`\`
+
+【注意】
+- JSONのみ出力してください（説明文不要）
+- 投球回は "3" "0.1" "0.2" のような文字列で
+- 打率は ".333" "1.000" "---" のような文字列で
+- 合計行は含めない（選手データのみ）
+- b1=単打数, b2=二塁打数, b3=三塁打数（b1+b2+b3+hr=h になるように）
+- sfは犠飛数（打席数に含まれないがOBP計算に必要）`;
+
+  document.getElementById('promptBox').textContent = prompt;
+  document.getElementById('promptResult').classList.add('show');
+  document.getElementById('copyHint').textContent = '';
+}
+
+function copyPrompt() {
+  const text = document.getElementById('promptBox').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    document.getElementById('copyBtn').textContent = '✓ コピーしました';
+    document.getElementById('copyHint').textContent = 'Claudeのチャットに貼り付けてください';
+    setTimeout(() => {
+      document.getElementById('copyBtn').textContent = '📋 コピー';
+    }, 3000);
+  }).catch(() => {
+    // フォールバック
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    document.getElementById('copyBtn').textContent = '✓ コピーしました';
+    document.getElementById('copyHint').textContent = 'Claudeのチャットに貼り付けてください';
+    setTimeout(() => { document.getElementById('copyBtn').textContent = '📋 コピー'; }, 3000);
+  });
+}
+
+function load() {
+  try { const d = localStorage.getItem(STORAGE_KEY); if (d) games = JSON.parse(d); } catch(e) { games = []; }
+  render();
+}
+
+function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(games)); }
+
+function switchPage(p) {
+  state.page = p;
+  ['import','games','batting','pitching','summary','ranking'].forEach(id => {
+    document.getElementById('page-'+id).style.display = id===p?'':'none';
+    document.getElementById('nav-'+id).classList.toggle('active', id===p);
+    const mob = document.getElementById('mob-'+id);
+    if (mob) mob.classList.toggle('active', id===p);
+  });
+  const titles = {import:'データ登録',games:'試合一覧',batting:'打撃成績',pitching:'投手成績',summary:'大会通算',ranking:'大会全体'};
+  document.getElementById('topbar-title').textContent = titles[p];
+  render();
+}
+
+function getAllTeams() {
+  const s = new Set();
+  games.forEach(g => { if(g.homeTeam) s.add(g.homeTeam); if(g.awayTeam) s.add(g.awayTeam); });
+  return [...s];
+}
+
+function registerGame() {
+  const raw = document.getElementById('jsonInput').value.trim();
+  const st = document.getElementById('importStatus');
+  if (!raw) { showStatus(st,'JSONを貼り付けてください','error'); return; }
+  let data;
+  try { data = JSON.parse(raw.replace(/```json|```/g,'').trim()); }
+  catch(e) { showStatus(st,'JSONの形式が正しくありません: '+e.message,'error'); return; }
+  if (!data.gameId) data.gameId = Date.now().toString();
+  if (games.find(g=>g.gameId===data.gameId)) { showStatus(st,'この試合はすでに登録されています','error'); return; }
+  games.push(data);
+  save();
+  document.getElementById('jsonInput').value = '';
+  showStatus(st,'✓ 登録完了: '+(data.awayTeam||'')+'  vs  '+(data.homeTeam||''),'success');
+  render();
+}
+
+function deleteGame(id) {
+  if (!confirm('この試合を削除しますか？')) return;
+  games = games.filter(g=>g.gameId!==id);
+  save(); render();
+}
+
+function showStatus(el, msg, type) { el.textContent=msg; el.className='status '+type; }
+
+function render() {
+  renderImport();
+  if (state.page==='games') renderGames();
+  if (state.page==='batting') renderBatting();
+  if (state.page==='pitching') renderPitching();
+  if (state.page==='summary') renderSummary();
+  if (state.page==='ranking') renderRanking();
+  document.getElementById('badge-games').textContent = games.length;
+  document.getElementById('mob-badge-games').textContent = games.length;
+  document.getElementById('mob-badge-games').style.display = games.length>0?'':'none';
+  document.getElementById('topbar-sub').textContent = games.length+'試合登録済み';
+  document.getElementById('game-count-import').textContent = '('+games.length+'試合)';
+}
+
+function renderImport() {
+  const el = document.getElementById('import-game-list');
+  if (!games.length) { el.innerHTML='<div class="empty">まだ試合が登録されていません</div>'; return; }
+  el.innerHTML = games.map(g=>`
+    <div class="game-row">
+      <div class="game-vs">
+        <div class="game-title-row">${esc(g.awayTeam||'?')} <span style="color:var(--text3)">vs</span> ${esc(g.homeTeam||'?')}</div>
+        <div class="game-meta-row">${esc(g.date||'')} ${esc(g.tournament||'')}</div>
+      </div>
+      <div class="game-score-box">${g.awayScore??'?'}–${g.homeScore??'?'}</div>
+      <button class="btn btn-sm btn-danger" onclick="deleteGame('${g.gameId}')">削除</button>
+    </div>`).join('');
+}
+
+function renderGames() {
+  const el = document.getElementById('games-content');
+  if (!games.length) { el.innerHTML='<div class="empty">試合データがありません</div>'; return; }
+  el.innerHTML = games.map(g=>{
+    const hi=(g.innings||{}).home||[], ai=(g.innings||{}).away||[];
+    const isColde = ai.length > hi.length;
+    const cols=Array.from({length:Math.max(hi.length,ai.length,7)},(_,i)=>i+1);
+    const homeWin=(g.homeScore||0)>(g.awayScore||0);
+    return `<div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+        <div>
+          <div style="font-size:13px;color:var(--text3);font-family:var(--mono);margin-bottom:4px">${esc(g.date||'')}${g.venue?' · '+esc(g.venue):''}</div>
+          <div style="font-size:12px;color:var(--text2)">${esc(g.tournament||'')}</div>
+        </div>
+        <span class="badge badge-win">${esc(homeWin?g.homeTeam:g.awayTeam)} 勝利</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:20px;margin-bottom:16px">
+        <div style="flex:1;text-align:right"><div style="font-size:15px;font-weight:700">${esc(g.awayTeam||'?')}</div><div style="font-size:10px;color:var(--text3);font-family:var(--mono)">VISITOR</div></div>
+        <div style="text-align:center;min-width:100px"><div style="font-size:32px;font-weight:700;font-family:var(--mono);letter-spacing:4px">${g.awayScore??'?'}<span style="color:var(--text3);font-size:20px;margin:0 6px">–</span>${g.homeScore??'?'}</div><div style="font-size:10px;color:var(--text3);font-family:var(--mono)">FINAL</div></div>
+        <div style="flex:1;text-align:left"><div style="font-size:15px;font-weight:700">${esc(g.homeTeam||'?')}</div><div style="font-size:10px;color:var(--text3);font-family:var(--mono)">HOME</div></div>
+      </div>
+      <table class="innings-table">
+        <thead><tr><th>チーム</th>${cols.map(c=>`<th>${c}</th>`).join('')}<th class="total-col">計</th><th class="total-col">H</th><th class="total-col">E</th></tr></thead>
+        <tbody>
+          <tr><td>${esc(g.awayTeam||'?')}</td>${cols.map((_,i)=>`<td>${ai[i]??''}</td>`).join('')}<td class="total-col" style="font-weight:700">${g.awayScore??'?'}</td><td class="total-col">${sumStat(g.awayBatting,'h')}</td><td class="total-col">${sumStat(g.awayBatting,'e')}</td></tr>
+          <tr><td>${esc(g.homeTeam||'?')}</td>${cols.map((_,i)=>`<td style="${isColde&&hi[i]===undefined&&i<ai.length?'color:var(--text3);font-style:italic':''}">${hi[i]!==undefined?hi[i]:isColde&&i<ai.length?'X':''}</td>`).join('')}<td class="total-col" style="font-weight:700">${g.homeScore??'?'}</td><td class="total-col">${sumStat(g.homeBatting,'h')}</td><td class="total-col">${sumStat(g.homeBatting,'e')}</td></tr>
+        </tbody>
+      </table>
+    </div>`;
+  }).join('');
+}
+
+function sumStat(batting,key) {
+  if(!batting) return '?';
+  return batting.reduce((s,p)=>s+(p[key]||0),0);
+}
+
+function renderBatting() {
+  const teams=getAllTeams();
+  if(!teams.length){document.getElementById('batting-team-tabs').innerHTML='';document.getElementById('batting-game-filter').innerHTML='';document.getElementById('batting-table-wrap').innerHTML='<div class="empty">試合データがありません</div>';return;}
+  if(!state.battingTeam||!teams.includes(state.battingTeam)) state.battingTeam=teams[0];
+  document.getElementById('batting-team-tabs').innerHTML=teams.map(t=>`<button class="team-tab ${t===state.battingTeam?'active':''}" onclick="selectBattingTeam('${esc(t)}')">${esc(t)}</button>`).join('');
+  const tg=games.filter(g=>g.homeTeam===state.battingTeam||g.awayTeam===state.battingTeam);
+  const opts=[['all','大会通算'],...tg.map(g=>[g.gameId,g.date+' vs '+(g.homeTeam===state.battingTeam?g.awayTeam:g.homeTeam)])];
+  document.getElementById('batting-game-filter').innerHTML=opts.map(([id,label])=>`<button class="game-filter-btn ${id===state.battingGame?'active':''}" onclick="selectBattingGame('${id}')">${esc(label)}</button>`).join('');
+  const rows=getBattingRows(state.battingTeam,state.battingGame);
+  if(!rows.length){document.getElementById('batting-table-wrap').innerHTML='<div class="empty">データなし</div>';return;}
+  document.getElementById('batting-table-wrap').innerHTML=`
+    <table class="stats-table has-total">
+      <thead><tr><th style="text-align:left">位置</th><th>選手</th><th>打数</th><th>得点</th><th>安打</th><th>打点</th><th>打率</th><th>出塁率</th><th>長打率</th><th>OPS</th><th>本塁打</th><th>二塁打</th><th>三塁打</th><th>三振</th><th>四球</th><th>死球</th><th>盗塁</th><th>残塁</th><th>失策</th></tr></thead>
+      <tbody>${rows.map(r=>{
+        const obp=calcOBP(r),slg=calcSLG(r),ops=calcOPS(r);
+        return `<tr>
+          <td style="color:var(--text3);font-family:var(--mono);font-size:11px;white-space:nowrap">${r.name==='合計'?'':esc(r.pos||'')}</td>
+          <td class="name-cell">${esc(r.name)}</td>
+          <td>${r.ab}</td><td>${r.r}</td><td>${r.h}</td><td>${r.rbi}</td>
+          <td class="${r.avg!==null&&r.avg>=.400?'highlight-avg':''}">${r.avg===null?'---':r.avg.toFixed(3)}</td>
+          <td>${fmtStat(obp)}</td>
+          <td>${fmtStat(slg)}</td>
+          <td class="${ops!=null&&ops>=.800?'highlight-avg':''}">${fmtStat(ops)}</td>
+          <td>${r.hr}</td><td>${r.b2||0}</td><td>${r.b3||0}</td>
+          <td>${r.k}</td><td>${r.bb}</td><td>${r.hbp}</td><td>${r.sb}</td><td>${r.lob}</td><td>${r.e}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>`;
+}
+
+function getBattingRows(team,gameId) {
+  const tg=gameId==='all'?games.filter(g=>g.homeTeam===team||g.awayTeam===team):games.filter(g=>g.gameId===gameId);
+  const map={};
+  tg.forEach(g=>{
+    const bat=g.homeTeam===team?(g.homeBatting||[]):(g.awayBatting||[]);
+    bat.forEach(p=>{
+      if(!p.name||p.name==='合計') return;
+      if(!map[p.name]) map[p.name]={name:p.name,pos:p.pos||'',ab:0,r:0,h:0,b1:0,b2:0,b3:0,rbi:0,hr:0,k:0,bb:0,hbp:0,sf:0,sb:0,lob:0,e:0,po:0,a:0};
+      const t=map[p.name];
+      if(p.pos) t.pos=p.pos;
+      ['ab','r','h','b1','b2','b3','rbi','hr','bb','hbp','sf','sb','lob','e','po','a'].forEach(f=>t[f]+=(p[f]||0));
+      t.k+=(p.k||p.so||0);
+    });
+  });
+  const rows=Object.values(map).map(t=>({...t,avg:t.ab>0?t.h/t.ab:null}));
+  if(!rows.length) return rows;
+  const tot={name:'合計',pos:'',ab:0,r:0,h:0,b1:0,b2:0,b3:0,rbi:0,hr:0,k:0,bb:0,hbp:0,sf:0,sb:0,lob:0,e:0,po:0,a:0};
+  rows.forEach(r=>['ab','r','h','b1','b2','b3','rbi','hr','k','bb','hbp','sf','sb','lob','e','po','a'].forEach(f=>tot[f]+=r[f]));
+  tot.avg=tot.ab>0?tot.h/tot.ab:null;
+  return [...rows.sort((a,b)=>b.ab-a.ab),tot];
+}
+
+function renderPitching() {
+  const teams=getAllTeams();
+  if(!teams.length){document.getElementById('pitching-team-tabs').innerHTML='';document.getElementById('pitching-game-filter').innerHTML='';document.getElementById('pitching-table-wrap').innerHTML='<div class="empty">試合データがありません</div>';return;}
+  if(!state.pitchingTeam||!teams.includes(state.pitchingTeam)) state.pitchingTeam=teams[0];
+  document.getElementById('pitching-team-tabs').innerHTML=teams.map(t=>`<button class="team-tab ${t===state.pitchingTeam?'active':''}" onclick="selectPitchingTeam('${esc(t)}')">${esc(t)}</button>`).join('');
+  const tg=games.filter(g=>g.homeTeam===state.pitchingTeam||g.awayTeam===state.pitchingTeam);
+  const opts=[['all','大会通算'],...tg.map(g=>[g.gameId,g.date+' vs '+(g.homeTeam===state.pitchingTeam?g.awayTeam:g.homeTeam)])];
+  document.getElementById('pitching-game-filter').innerHTML=opts.map(([id,label])=>`<button class="game-filter-btn ${id===state.pitchingGame?'active':''}" onclick="selectPitchingGame('${id}')">${esc(label)}</button>`).join('');
+  const rows=getPitchingRows(state.pitchingTeam,state.pitchingGame);
+  if(!rows.length){document.getElementById('pitching-table-wrap').innerHTML='<div class="empty">データなし</div>';return;}
+
+  // 大会通算のときだけ合計行を追加
+  let displayRows=rows;
+  if(state.pitchingGame==='all' && rows.length){
+    const totIpW=rows.reduce((s,p)=>{const[w]=String(p.ip||'0').split('.');return s+parseInt(w||0);},0);
+    const totIpF=rows.reduce((s,p)=>{const parts=String(p.ip||'0').split('.');return s+parseInt(parts[1]||0);},0);
+    const totEr=rows.reduce((s,p)=>s+(p.er||0),0);
+    const extra=Math.floor(totIpF/3),rem=totIpF%3;
+    const totalIp=(totIpW+extra)+(rem/3);
+    const totRow={
+      name:'合計', result:'',
+      era: totalIp>0?(totEr/totalIp*9).toFixed(2):'---',
+      ip: (totIpW+extra)+(rem?'.'+rem:''),
+      bf: rows.reduce((s,p)=>s+(p.bf||0),0),
+      np: rows.reduce((s,p)=>s+(p.np||0),0),
+      h:  rows.reduce((s,p)=>s+(p.h||0),0),
+      hr: rows.reduce((s,p)=>s+(p.hr||0),0),
+      k:  rows.reduce((s,p)=>s+(p.k||0),0),
+      bb: rows.reduce((s,p)=>s+(p.bb||0),0),
+      hbp:rows.reduce((s,p)=>s+(p.hbp||0),0),
+      r:  rows.reduce((s,p)=>s+(p.r||0),0),
+      er: totEr,
+      wp: rows.reduce((s,p)=>s+(p.wp||0),0),
+    };
+    displayRows=[...rows, totRow];
+  }
+
+  document.getElementById('pitching-table-wrap').innerHTML=`
+    <table class="stats-table ${state.pitchingGame==='all'?'has-total':''}">
+      <thead><tr><th>選手</th><th>結果</th><th>防御率</th><th>WHIP</th><th>投球回</th><th>打者</th><th>球数</th><th>安打</th><th>本</th><th>三振</th><th>四球</th><th>死球</th><th>失点</th><th>自責点</th><th>暴投</th></tr></thead>
+      <tbody>${displayRows.map(r=>`<tr><td class="name-cell">${esc(r.name)}</td><td>${r.result?`<span class="badge ${r.result==='○'?'badge-win':'badge-loss'}">${r.result}</span>`:''}</td><td class="${parseFloat(r.era)<2.0?'highlight-era':''}">${r.era}</td><td>${r.name==='合計'?'---':fmtStat(calcWHIP(r),2)}</td><td>${r.ip}</td><td>${r.bf}</td><td>${r.np}</td><td>${r.h}</td><td>${r.hr}</td><td>${r.k}</td><td>${r.bb}</td><td>${r.hbp}</td><td>${r.r}</td><td>${r.er}</td><td>${r.wp}</td></tr>`).join('')}</tbody>
+    </table>`;
+}
+
+function getPitchingRows(team,gameId) {
+  const tg=gameId==='all'?games.filter(g=>g.homeTeam===team||g.awayTeam===team):games.filter(g=>g.gameId===gameId);
+  const map={};
+  tg.forEach(g=>{
+    const pit=g.homeTeam===team?(g.homePitching||[]):(g.awayPitching||[]);
+    pit.forEach(p=>{
+      if(!p.name||p.name==='合計') return;
+      if(!map[p.name]) map[p.name]={name:p.name,result:'',ipW:0,ipF:0,bf:0,np:0,h:0,hr:0,k:0,bb:0,hbp:0,r:0,er:0,wp:0};
+      const t=map[p.name];
+      if(p.result==='○'||p.result==='●') t.result=p.result;
+      const s=String(p.ip||'0');const[w,f]=s.split('.');
+      t.ipW+=parseInt(w||0);t.ipF+=parseInt(f||0);
+      ['bf','np','h','hr','k','bb','hbp','r','er','wp'].forEach(f2=>t[f2]+=(p[f2]||0));
+    });
+  });
+  return Object.values(map).map(t=>{
+    const extra=Math.floor(t.ipF/3),rem=t.ipF%3;
+    const totalIp=(t.ipW+extra)+(rem/3);
+    return {...t,ip:(t.ipW+extra)+(rem?'.'+rem:''),era:totalIp>0?(t.er/totalIp*9).toFixed(2):'---'};
+  });
+}
+
+function renderSummary() {
+  const teams=getAllTeams();
+  if(!teams.length){
+    document.getElementById('summary-team-tabs').innerHTML='';
+    document.getElementById('summary-content').innerHTML='<div class="empty">試合データがありません</div>';
+    document.getElementById('summary-bat-filters').style.display='none';
+    document.getElementById('summary-bat-table-card').style.display='none';
+    document.getElementById('summary-pit-filters').style.display='none';
+    document.getElementById('summary-pit-table-card').style.display='none';
+    return;
+  }
+  if(!state.summaryTeam||!teams.includes(state.summaryTeam)) state.summaryTeam=teams[0];
+  document.getElementById('summary-team-tabs').innerHTML=teams.map(t=>`<button class="team-tab ${t===state.summaryTeam?'active':''}" onclick="selectSummaryTeam('${esc(t)}')">${esc(t)}</button>`).join('');
+
+  const tg=games.filter(g=>g.homeTeam===state.summaryTeam||g.awayTeam===state.summaryTeam);
+  const wins=tg.filter(g=>{const isHome=g.homeTeam===state.summaryTeam;return isHome?(g.homeScore||0)>(g.awayScore||0):(g.awayScore||0)>(g.homeScore||0);}).length;
+  const allBatRows=getBattingRows(state.summaryTeam,'all');
+  const tot=allBatRows.find(r=>r.name==='合計')||{};
+  const pitRows=getPitchingRows(state.summaryTeam,'all');
+
+  // チーム通算投手成績を集計
+  const pitTotIpW=pitRows.reduce((s,p)=>{const[w]=String(p.ip||'0').split('.');return s+parseInt(w||0);},0);
+  const pitTotIpF=pitRows.reduce((s,p)=>{const parts=String(p.ip||'0').split('.');return s+parseInt(parts[1]||0);},0);
+  const pitTotEr=pitRows.reduce((s,p)=>s+(p.er||0),0);
+  const pitTotR=pitRows.reduce((s,p)=>s+(p.r||0),0);
+  const pitTotK=pitRows.reduce((s,p)=>s+(p.k||0),0);
+  const pitTotBb=pitRows.reduce((s,p)=>s+(p.bb||0),0);
+  const pitTotH=pitRows.reduce((s,p)=>s+(p.h||0),0);
+  const pitTotNp=pitRows.reduce((s,p)=>s+(p.np||0),0);
+  const pitTotHbp=pitRows.reduce((s,p)=>s+(p.hbp||0),0);
+  const pitExtraW=Math.floor(pitTotIpF/3),pitRemF=pitTotIpF%3;
+  const pitTotalIp=(pitTotIpW+pitExtraW)+(pitRemF/3);
+  const teamEra=pitTotalIp>0?(pitTotEr/pitTotalIp*9).toFixed(2):'---';
+  const pitTotIpDisp=(pitTotIpW+pitExtraW)+(pitRemF?'.'+pitRemF:'');
+
+  // メトリクス + 試合結果
+  document.getElementById('summary-content').innerHTML=`
+    <div style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px">打撃</div>
+    <div class="metrics" style="margin-bottom:20px">
+      <div class="metric"><div class="metric-label">試合数</div><div class="metric-value">${tg.length}</div><div class="metric-sub">${wins}勝${tg.length-wins}敗</div></div>
+      <div class="metric"><div class="metric-label">チーム打率</div><div class="metric-value">${tot.avg!=null?tot.avg.toFixed(3):'---'}</div><div class="metric-sub">${tot.h||0}安打</div></div>
+      <div class="metric"><div class="metric-label">総得点</div><div class="metric-value">${tot.r||0}</div><div class="metric-sub">${tot.rbi||0}打点</div></div>
+      <div class="metric"><div class="metric-label">本塁打</div><div class="metric-value">${tot.hr||0}</div><div class="metric-sub">大会通算</div></div>
+      <div class="metric"><div class="metric-label">三振</div><div class="metric-value">${tot.k||0}</div><div class="metric-sub">大会通算</div></div>
+      <div class="metric"><div class="metric-label">四球</div><div class="metric-value">${tot.bb||0}</div><div class="metric-sub">大会通算</div></div>
+      <div class="metric"><div class="metric-label">盗塁</div><div class="metric-value">${tot.sb||0}</div><div class="metric-sub">大会通算</div></div>
+      <div class="metric"><div class="metric-label">失策</div><div class="metric-value">${tot.e||0}</div><div class="metric-sub">大会通算</div></div>
+    </div>
+    <div style="font-size:11px;color:var(--text3);font-family:var(--mono);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px">投手</div>
+    <div class="metrics" style="margin-bottom:20px">
+      <div class="metric"><div class="metric-label">チーム防御率</div><div class="metric-value" style="font-size:22px">${teamEra}</div><div class="metric-sub">${pitTotIpDisp}回 自責${pitTotEr}</div></div>
+      <div class="metric"><div class="metric-label">総失点</div><div class="metric-value">${pitTotR}</div><div class="metric-sub">自責点${pitTotEr}</div></div>
+      <div class="metric"><div class="metric-label">奪三振</div><div class="metric-value">${pitTotK}</div><div class="metric-sub">大会通算</div></div>
+      <div class="metric"><div class="metric-label">与四球</div><div class="metric-value">${pitTotBb}</div><div class="metric-sub">大会通算</div></div>
+      <div class="metric"><div class="metric-label">被安打</div><div class="metric-value">${pitTotH}</div><div class="metric-sub">大会通算</div></div>
+      <div class="metric"><div class="metric-label">与死球</div><div class="metric-value">${pitTotHbp}</div><div class="metric-sub">大会通算</div></div>
+      <div class="metric"><div class="metric-label">総球数</div><div class="metric-value">${pitTotNp}</div><div class="metric-sub">大会通算</div></div>
+    </div>
+    <div class="card">
+      <div class="card-title">試合結果</div>
+      ${tg.map(g=>{const isHome=g.homeTeam===state.summaryTeam;const my=isHome?g.homeScore:g.awayScore,op=isHome?g.awayScore:g.homeScore,opp=isHome?g.awayTeam:g.homeTeam;const win=(my||0)>(op||0);return`<div class="game-row"><div class="game-vs"><div class="game-title-row">vs ${esc(opp||'?')}</div><div class="game-meta-row">${esc(g.date||'')}${g.venue?' · '+esc(g.venue):''}</div></div><div class="game-score-box">${my}–${op}</div><span class="badge ${win?'badge-win':'badge-loss'}">${win?'勝':'敗'}</span></div>`;}).join('')}
+    </div>`;
+
+  // 野手フィルターUI
+  const batSortOpts=[['avg','打率'],['obp','出塁率'],['slg','長打率'],['ops','OPS'],['h','安打'],['rbi','打点'],['hr','本塁打'],['r','得点'],['k','三振'],['bb','四球'],['sb','盗塁']];
+  const batMinOpts=[[0,'全員'],[1,'1打数〜'],[3,'3打数〜'],[5,'5打数〜'],[8,'8打数〜']];
+  document.getElementById('summary-bat-filters').style.display='block';
+  document.getElementById('summary-bat-min-filter').innerHTML=batMinOpts.map(([v,l])=>`<button class="game-filter-btn ${state.summaryBatMin===v?'active':''}" onclick="setSummaryBatMin(${v})">${l}</button>`).join('');
+  document.getElementById('summary-bat-sort-filter').innerHTML=batSortOpts.map(([v,l])=>`<button class="game-filter-btn ${state.summaryBatSort===v?'active':''}" onclick="setSummaryBatSort('${v}')">${l}</button>`).join('');
+
+  // 野手テーブル
+  const playerRows=allBatRows.filter(r=>r.name!=='合計'&&r.ab>=state.summaryBatMin);
+  const sortKey=state.summaryBatSort;
+  playerRows.sort((a,b)=>{
+    if(sortKey==='avg') return (b.avg??-1)-(a.avg??-1);
+    if(sortKey==='obp') return (calcOBP(b)??-1)-(calcOBP(a)??-1);
+    if(sortKey==='slg') return (calcSLG(b)??-1)-(calcSLG(a)??-1);
+    if(sortKey==='ops') return (calcOPS(b)??-1)-(calcOPS(a)??-1);
+    return (b[sortKey]||0)-(a[sortKey]||0);
+  });
+  document.getElementById('summary-bat-table-card').style.display='block';
+  document.getElementById('summary-bat-table-wrap').innerHTML=playerRows.length?`
+    <table class="stats-table">
+      <thead><tr><th style="text-align:left">位置</th><th>選手</th><th>打数</th><th>得点</th><th>安打</th><th>打点</th><th>打率</th><th>出塁率</th><th>長打率</th><th>OPS</th><th>本塁打</th><th>三振</th><th>四球</th><th>死球</th><th>盗塁</th><th>残塁</th><th>失策</th></tr></thead>
+      <tbody>${playerRows.map(r=>{const obp=calcOBP(r),slg=calcSLG(r),ops=calcOPS(r);return`<tr><td style="color:var(--text3);font-family:var(--mono);font-size:11px">${esc(r.pos||'')}</td><td class="name-cell">${esc(r.name)}</td><td>${r.ab}</td><td>${r.r}</td><td>${r.h}</td><td>${r.rbi}</td><td class="${r.avg!=null&&r.avg>=.400?'highlight-avg':''}">${r.avg===null?'---':r.avg.toFixed(3)}</td><td>${fmtStat(obp)}</td><td>${fmtStat(slg)}</td><td class="${ops!=null&&ops>=.800?'highlight-avg':''}">${fmtStat(ops)}</td><td>${r.hr}</td><td>${r.k}</td><td>${r.bb}</td><td>${r.hbp}</td><td>${r.sb}</td><td>${r.lob}</td><td>${r.e}</td></tr>`;}).join('')}</tbody>
+    </table>`:'<div class="empty">条件に合う選手がいません</div>';
+
+  // 投手フィルターUI
+  const pitSortOpts=[['era','防御率'],['whip','WHIP'],['k','三振'],['ip','投球回'],['bb','四球'],['r','失点'],['np','球数']];
+  document.getElementById('summary-pit-filters').style.display='block';
+  document.getElementById('summary-pit-sort-filter').innerHTML=pitSortOpts.map(([v,l])=>`<button class="game-filter-btn ${state.summaryPitSort===v?'active':''}" onclick="setSummaryPitSort('${v}')">${l}</button>`).join('');
+
+  // 投手テーブル
+  const sortedPit=[...pitRows];
+  sortedPit.sort((a,b)=>{
+    if(state.summaryPitSort==='era'){
+      const ae=a.era==='---'?9999:parseFloat(a.era)??9999;
+      const be=b.era==='---'?9999:parseFloat(b.era)??9999;
+      return ae-be;
+    }
+    if(state.summaryPitSort==='whip'){
+      const aw=calcWHIP(a)??9999, bw=calcWHIP(b)??9999;
+      return aw-bw;
+    }
+    if(state.summaryPitSort==='ip'){
+      const toNum=ip=>{const[w,f]=String(ip||'0').split('.');return parseInt(w||0)+(parseInt(f||0)/3);};
+      return toNum(b.ip)-toNum(a.ip);
+    }
+    return (b[state.summaryPitSort]||0)-(a[state.summaryPitSort]||0);
+  });
+  document.getElementById('summary-pit-table-card').style.display=pitRows.length?'block':'none';
+  document.getElementById('summary-pit-table-wrap').innerHTML=`
+    <table class="stats-table">
+      <thead><tr><th>選手</th><th>勝敗</th><th>防御率</th><th>WHIP</th><th>投球回</th><th>球数</th><th>安打</th><th>三振</th><th>四球</th><th>死球</th><th>失点</th><th>自責点</th><th>暴投</th></tr></thead>
+      <tbody>${sortedPit.map(r=>`<tr><td class="name-cell">${esc(r.name)}</td><td>${r.result?`<span class="badge ${r.result==='○'?'badge-win':'badge-loss'}">${r.result}</span>`:''}</td><td class="${parseFloat(r.era)<2?'highlight-era':''}">${r.era}</td><td>${fmtStat(calcWHIP(r),2)}</td><td>${r.ip}</td><td>${r.np}</td><td>${r.h}</td><td>${r.k}</td><td>${r.bb}</td><td>${r.hbp}</td><td>${r.r}</td><td>${r.er}</td><td>${r.wp}</td></tr>`).join('')}</tbody>
+    </table>`;
+}
+
+function setSummaryBatMin(v){state.summaryBatMin=v;renderSummary();}
+function setSummaryBatSort(v){state.summaryBatSort=v;renderSummary();}
+function setSummaryPitSort(v){state.summaryPitSort=v;renderSummary();}
+
+function renderRanking() {
+  if (!games.length) {
+    document.getElementById('ranking-type-filter').innerHTML='';
+    document.getElementById('ranking-sub-filter').innerHTML='';
+    document.getElementById('ranking-sort-filter').innerHTML='';
+    document.getElementById('ranking-table-wrap').innerHTML='<div class="empty">試合データがありません</div>';
+    return;
+  }
+
+  const types=[['batting','打撃ランキング'],['pitching','投手ランキング'],['team','チーム成績']];
+  document.getElementById('ranking-type-filter').innerHTML=types.map(([v,l])=>
+    `<button class="game-filter-btn ${state.rankingType===v?'active':''}" onclick="setRankingType('${v}')">${l}</button>`).join('');
+
+  if (state.rankingType==='batting') {
+    document.getElementById('ranking-filter-label').style.display='';
+    document.getElementById('ranking-filter-label').textContent='最低打数';
+    document.getElementById('ranking-sort-divider').style.display='';
+    document.getElementById('ranking-sort-label').style.display='';
+    const minOpts=[[0,'全員'],[3,'3打数〜'],[5,'5打数〜'],[8,'8打数〜'],[12,'12打数〜']];
+    document.getElementById('ranking-sub-filter').innerHTML=minOpts.map(([v,l])=>
+      `<button class="game-filter-btn ${state.rankingBatMin===v?'active':''}" onclick="setRankingBatMin(${v})">${l}</button>`).join('');
+    const sortOpts=[['avg','打率'],['obp','出塁率'],['slg','長打率'],['ops','OPS'],['h','安打'],['hr','本塁打'],['rbi','打点'],['r','得点'],['sb','盗塁'],['bb','四球'],['k','三振']];
+    document.getElementById('ranking-sort-filter').innerHTML=sortOpts.map(([v,l])=>
+      `<button class="game-filter-btn ${state.rankingBatSort===v?'active':''}" onclick="setRankingBatSort('${v}')">${l}</button>`).join('');
+    document.getElementById('ranking-filter-label').parentElement.style.display='flex';
+
+    // 全チームの全選手を集計（チーム情報付き）
+    const teams = getAllTeams();
+    const allPlayers = {};
+    teams.forEach(team => {
+      const rows = getBattingRows(team, 'all').filter(r=>r.name!=='合計');
+      rows.forEach(r => {
+        const key = team+'::'+r.name;
+        if (!allPlayers[key]) allPlayers[key] = {...r, team};
+      });
+    });
+    let players = Object.values(allPlayers).filter(r=>r.ab>=state.rankingBatMin);
+    const sk = state.rankingBatSort;
+    players.sort((a,b)=>{
+      if(sk==='avg') return (b.avg??-1)-(a.avg??-1);
+      if(sk==='obp') return (calcOBP(b)??-1)-(calcOBP(a)??-1);
+      if(sk==='slg') return (calcSLG(b)??-1)-(calcSLG(a)??-1);
+      if(sk==='ops') return (calcOPS(b)??-1)-(calcOPS(a)??-1);
+      return (b[sk]||0)-(a[sk]||0);
+    });
+
+    document.getElementById('ranking-table-wrap').innerHTML = players.length ? `
+      <table class="stats-table">
+        <thead><tr><th style="text-align:left">順</th><th style="text-align:left">チーム</th><th style="text-align:left">選手</th><th>打数</th><th>得点</th><th>安打</th><th>打点</th><th>打率</th><th>出塁率</th><th>長打率</th><th>OPS</th><th>本塁打</th><th>三振</th><th>四球</th><th>盗塁</th></tr></thead>
+        <tbody>${players.map((r,i)=>{const obp=calcOBP(r),slg=calcSLG(r),ops=calcOPS(r);return`<tr>
+          <td style="color:var(--text3);font-family:var(--mono);font-size:11px;text-align:left">${i+1}</td>
+          <td style="font-size:11px;color:var(--text2);text-align:left;white-space:nowrap">${esc(r.team)}</td>
+          <td class="name-cell">${esc(r.name)}</td>
+          <td>${r.ab}</td><td>${r.r}</td><td>${r.h}</td><td>${r.rbi}</td>
+          <td class="${r.avg!=null&&r.avg>=.400?'highlight-avg':''}">${r.avg===null?'---':r.avg.toFixed(3)}</td>
+          <td>${fmtStat(obp)}</td><td>${fmtStat(slg)}</td>
+          <td class="${ops!=null&&ops>=.800?'highlight-avg':''}">${fmtStat(ops)}</td>
+          <td>${r.hr}</td><td>${r.k}</td><td>${r.bb}</td><td>${r.sb}</td>
+        </tr>`;}).join('')}</tbody>
+      </table>` : '<div class="empty">条件に合う選手がいません</div>';
+
+  } else if (state.rankingType==='pitching') {
+    document.getElementById('ranking-filter-label').style.display='';
+    document.getElementById('ranking-filter-label').textContent='最低投球回';
+    document.getElementById('ranking-sub-filter').innerHTML=['0:全員','1:1回〜','3:3回〜','5:5回〜','8:8回〜'].map(s=>{const[v,l]=s.split(':');return`<button class="game-filter-btn ${state.rankingPitMin===Number(v)?'active':''}" onclick="setRankingPitMin(${v})">${l}</button>`;}).join('');
+    document.getElementById('ranking-sort-divider').style.display='';
+    document.getElementById('ranking-sort-label').style.display='';
+    const sortOpts=[['era','防御率'],['whip','WHIP'],['k','三振'],['ip','投球回'],['bb','四球'],['r','失点'],['np','球数']];
+    document.getElementById('ranking-sort-filter').innerHTML=sortOpts.map(([v,l])=>
+      `<button class="game-filter-btn ${state.rankingPitSort===v?'active':''}" onclick="setRankingPitSort('${v}')">${l}</button>`).join('');
+    document.getElementById('ranking-filter-label').parentElement.style.display='flex';
+
+    const teams = getAllTeams();
+    const allPitchers = {};
+    teams.forEach(team => {
+      const rows = getPitchingRows(team,'all');
+      rows.forEach(r => {
+        const key = team+'::'+r.name;
+        if (!allPitchers[key]) allPitchers[key] = {...r, team};
+      });
+    });
+    let pitchers = Object.values(allPitchers).filter(p=>{
+      const[w,f]=String(p.ip||'0').split('.');
+      const ipNum=parseInt(w||0)+(parseInt(f||0)/3);
+      return ipNum>=state.rankingPitMin;
+    });
+    pitchers.sort((a,b)=>{
+      if(state.rankingPitSort==='era'){const ae=a.era==='---'?9999:parseFloat(a.era)??9999,be=b.era==='---'?9999:parseFloat(b.era)??9999;return ae-be;}
+      if(state.rankingPitSort==='whip'){const aw=calcWHIP(a)??9999,bw=calcWHIP(b)??9999;return aw-bw;}
+      if(state.rankingPitSort==='ip'){const toNum=ip=>{const[w,f]=String(ip||'0').split('.');return parseInt(w||0)+(parseInt(f||0)/3);};return toNum(b.ip)-toNum(a.ip);}
+      return (b[state.rankingPitSort]||0)-(a[state.rankingPitSort]||0);
+    });
+
+    document.getElementById('ranking-table-wrap').innerHTML = pitchers.length ? `
+      <table class="stats-table">
+        <thead><tr><th style="text-align:left">順</th><th style="text-align:left">チーム</th><th style="text-align:left">選手</th><th>勝敗</th><th>防御率</th><th>WHIP</th><th>投球回</th><th>球数</th><th>安打</th><th>三振</th><th>四球</th><th>死球</th><th>失点</th><th>自責点</th></tr></thead>
+        <tbody>${pitchers.map((r,i)=>`<tr>
+          <td style="color:var(--text3);font-family:var(--mono);font-size:11px;text-align:left">${i+1}</td>
+          <td style="font-size:11px;color:var(--text2);text-align:left;white-space:nowrap">${esc(r.team)}</td>
+          <td class="name-cell">${esc(r.name)}</td>
+          <td>${r.result?`<span class="badge ${r.result==='○'?'badge-win':'badge-loss'}">${r.result}</span>`:''}</td>
+          <td class="${parseFloat(r.era)<2?'highlight-era':''}">${r.era}</td>
+          <td>${fmtStat(calcWHIP(r),2)}</td>
+          <td>${r.ip}</td><td>${r.np}</td><td>${r.h}</td><td>${r.k}</td><td>${r.bb}</td><td>${r.hbp}</td><td>${r.r}</td><td>${r.er}</td>
+        </tr>`).join('')}</tbody>
+      </table>` : '<div class="empty">データなし</div>';
+
+  } else {
+    // チーム成績
+    document.getElementById('ranking-filter-label').style.display='none';
+    document.getElementById('ranking-sub-filter').innerHTML='';
+    document.getElementById('ranking-sort-divider').style.display='';
+    document.getElementById('ranking-sort-label').style.display='';
+    const sortOpts=[['wins','勝利数'],['avg','チーム打率'],['runsFor','得点'],['era','チーム防御率'],['runsAgainst','失点']];
+    document.getElementById('ranking-sort-filter').innerHTML=sortOpts.map(([v,l])=>
+      `<button class="game-filter-btn ${state.rankingTeamSort===v?'active':''}" onclick="setRankingTeamSort('${v}')">${l}</button>`).join('');
+
+    const teams = getAllTeams();
+    const teamStats = teams.map(team => {
+      const tg = games.filter(g=>g.homeTeam===team||g.awayTeam===team);
+      const wins = tg.filter(g=>{const isHome=g.homeTeam===team;return isHome?(g.homeScore||0)>(g.awayScore||0):(g.awayScore||0)>(g.homeScore||0);}).length;
+      const batRows = getBattingRows(team,'all');
+      const tot = batRows.find(r=>r.name==='合計')||{};
+      const pitRows = getPitchingRows(team,'all');
+      const pitTotIpF=pitRows.reduce((s,p)=>{const parts=String(p.ip||'0').split('.');return s+parseInt(parts[1]||0);},0);
+      const pitTotIpW=pitRows.reduce((s,p)=>{const[w]=String(p.ip||'0').split('.');return s+parseInt(w||0);},0);
+      const pitTotEr=pitRows.reduce((s,p)=>s+(p.er||0),0);
+      const extra=Math.floor(pitTotIpF/3),rem=pitTotIpF%3;
+      const totalIp=(pitTotIpW+extra)+(rem/3);
+      const era=totalIp>0?(pitTotEr/totalIp*9).toFixed(2):'---';
+      const runsFor = tg.reduce((s,g)=>s+(g.homeTeam===team?(g.homeScore||0):(g.awayScore||0)),0);
+      const runsAgainst = tg.reduce((s,g)=>s+(g.homeTeam===team?(g.awayScore||0):(g.homeScore||0)),0);
+      return {team, games:tg.length, wins, losses:tg.length-wins, avg:tot.avg, hits:tot.h||0, hr:tot.hr||0, era, runsFor, runsAgainst};
+    }).sort((a,b)=>{
+      if(state.rankingTeamSort==='wins') return b.wins-a.wins||(a.losses-b.losses);
+      if(state.rankingTeamSort==='avg') return (b.avg??-1)-(a.avg??-1);
+      if(state.rankingTeamSort==='era'){const ae=a.era==='---'?9999:parseFloat(a.era)??9999,be=b.era==='---'?9999:parseFloat(b.era)??9999;return ae-be;}
+      if(state.rankingTeamSort==='runsAgainst') return a.runsAgainst-b.runsAgainst;
+      return (b[state.rankingTeamSort]||0)-(a[state.rankingTeamSort]||0);
+    });
+
+    document.getElementById('ranking-table-wrap').innerHTML = teamStats.length ? `
+      <table class="stats-table">
+        <thead><tr><th style="text-align:left">チーム</th><th>試合</th><th>勝</th><th>敗</th><th>チーム打率</th><th>安打</th><th>本塁打</th><th>得点</th><th>失点</th><th>チーム防御率</th></tr></thead>
+        <tbody>${teamStats.map(r=>`<tr>
+          <td class="name-cell">${esc(r.team)}</td>
+          <td>${r.games}</td>
+          <td style="color:var(--green);font-weight:500">${r.wins}</td>
+          <td style="color:var(--red)">${r.losses}</td>
+          <td class="${r.avg!=null&&r.avg>=.300?'highlight-avg':''}">${r.avg!=null?r.avg.toFixed(3):'---'}</td>
+          <td>${r.hits}</td><td>${r.hr}</td>
+          <td style="color:var(--green)">${r.runsFor}</td>
+          <td style="color:var(--red)">${r.runsAgainst}</td>
+          <td class="${parseFloat(r.era)<2?'highlight-era':''}">${r.era}</td>
+        </tr>`).join('')}</tbody>
+      </table>` : '<div class="empty">データなし</div>';
+  }
+}
+
+function setRankingType(v){state.rankingType=v;renderRanking();}
+function setRankingBatMin(v){state.rankingBatMin=v;renderRanking();}
+function setRankingBatSort(v){state.rankingBatSort=v;renderRanking();}
+function setRankingPitSort(v){state.rankingPitSort=v;renderRanking();}
+function setRankingPitMin(v){state.rankingPitMin=v;renderRanking();}
+function setRankingTeamSort(v){state.rankingTeamSort=v;renderRanking();}
+
+function selectBattingTeam(t){state.battingTeam=t;state.battingGame='all';renderBatting();}
+function selectBattingGame(id){state.battingGame=id;renderBatting();}
+function selectPitchingTeam(t){state.pitchingTeam=t;state.pitchingGame='all';renderPitching();}
+function selectPitchingGame(id){state.pitchingGame=id;renderPitching();}
+function selectSummaryTeam(t){state.summaryTeam=t;renderSummary();}
+function calcOBP(r) {
+  const denom = (r.ab||0)+(r.bb||0)+(r.hbp||0)+(r.sf||0);
+  return denom>0 ? ((r.h||0)+(r.bb||0)+(r.hbp||0))/denom : null;
+}
+function calcSLG(r) {
+  if (!r.ab) return null;
+  const tb = (r.b1||0)*1 + (r.b2||0)*2 + (r.b3||0)*3 + (r.hr||0)*4;
+  // b1/b2/b3がない場合はhrのみで近似
+  const hasSplit = (r.b1!=null||r.b2!=null||r.b3!=null);
+  if (!hasSplit) return null;
+  return tb / r.ab;
+}
+function calcOPS(r) {
+  const obp = calcOBP(r), slg = calcSLG(r);
+  return (obp!=null && slg!=null) ? obp+slg : null;
+}
+function calcWHIP(r) {
+  const ipStr = String(r.ip||'0');
+  const [w,f] = ipStr.split('.');
+  const ip = parseInt(w||0)+(parseInt(f||0)/3);
+  return ip>0 ? ((r.h||0)+(r.bb||0))/ip : null;
+}
+function fmtStat(v, digits=3) {
+  return v==null ? '---' : v.toFixed(digits);
+}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+function loadSample() {
+  const sample = {"gameId":"20264262822","tournament":"第97回都市対抗野球大会 東海地区二次予選","date":"2026-05-28","venue":"岡崎レッドダイヤモンドスタジアム","homeTeam":"西濃運輸","awayTeam":"寿々硬式野球クラブ","homeScore":12,"awayScore":2,"innings":{"home":[2,3,1,0,2,3,1],"away":[0,0,0,0,0,0,2]},"homeBatting":[{"pos":"遊","name":"北野 貴昭","ab":3,"r":2,"h":1,"rbi":1,"avg":".333","hr":0,"k":0,"bb":0,"hbp":0,"sb":0,"lob":0,"e":0,"po":4,"a":1},{"pos":"左","name":"福島 大輝","ab":5,"r":1,"h":2,"rbi":1,"avg":".400","hr":1,"k":0,"bb":0,"hbp":0,"sb":1,"lob":1,"e":0,"po":1,"a":0},{"pos":"中","name":"原田 大輔","ab":4,"r":2,"h":2,"rbi":1,"avg":".500","hr":0,"k":1,"bb":0,"hbp":0,"sb":0,"lob":0,"e":0,"po":1,"a":0},{"pos":"三","name":"野崎 大地","ab":3,"r":0,"h":0,"rbi":0,"avg":".000","hr":0,"k":1,"bb":1,"hbp":0,"sb":0,"lob":0,"e":0,"po":0,"a":0},{"pos":"一","name":"小中 健蔵","ab":3,"r":2,"h":0,"rbi":0,"avg":".000","hr":0,"k":1,"bb":1,"hbp":0,"sb":0,"lob":0,"e":0,"po":3,"a":0},{"pos":"指","name":"河田 隆博","ab":3,"r":1,"h":2,"rbi":0,"avg":".667","hr":0,"k":0,"bb":0,"hbp":0,"sb":0,"lob":1,"e":0,"po":0,"a":0},{"pos":"打指","name":"譽田 貴之","ab":1,"r":0,"h":1,"rbi":2,"avg":"1.000","hr":0,"k":0,"bb":0,"hbp":0,"sb":0,"lob":1,"e":0,"po":0,"a":0},{"pos":"二","name":"大山 仁也","ab":2,"r":2,"h":2,"rbi":1,"avg":"1.000","hr":0,"k":0,"bb":0,"hbp":0,"sb":0,"lob":0,"e":0,"po":1,"a":0},{"pos":"打","name":"池口 輝","ab":0,"r":0,"h":0,"rbi":0,"avg":"---","hr":0,"k":0,"bb":0,"hbp":1,"sb":0,"lob":1,"e":0,"po":0,"a":0},{"pos":"二","name":"宮田 蒼太","ab":0,"r":0,"h":0,"rbi":0,"avg":"---","hr":0,"k":0,"bb":0,"hbp":0,"sb":0,"lob":0,"e":0,"po":0,"a":1},{"pos":"捕","name":"城野 達哉","ab":4,"r":1,"h":1,"rbi":2,"avg":".250","hr":0,"k":0,"bb":0,"hbp":0,"sb":0,"lob":1,"e":0,"po":9,"a":2},{"pos":"右","name":"前田 大輔","ab":3,"r":1,"h":1,"rbi":0,"avg":".333","hr":0,"k":0,"bb":1,"hbp":0,"sb":0,"lob":1,"e":0,"po":1,"a":0}],"awayBatting":[{"pos":"中","name":"堀田 康介","ab":4,"r":0,"h":1,"rbi":0,"avg":".250","hr":0,"k":0,"bb":0,"hbp":0,"sb":0,"lob":0,"e":0,"po":4,"a":0},{"pos":"二","name":"畑中 椋翔","ab":3,"r":0,"h":2,"rbi":0,"avg":".667","hr":0,"k":0,"bb":0,"hbp":0,"sb":0,"lob":1,"e":0,"po":1,"a":1},{"pos":"三","name":"本道 優作","ab":2,"r":0,"h":0,"rbi":0,"avg":".000","hr":0,"k":1,"bb":0,"hbp":1,"sb":0,"lob":0,"e":0,"po":0,"a":0},{"pos":"一","name":"片山 朋哉","ab":3,"r":0,"h":1,"rbi":0,"avg":".333","hr":0,"k":1,"bb":0,"hbp":0,"sb":0,"lob":2,"e":0,"po":6,"a":2},{"pos":"左","name":"黒川 大輔","ab":1,"r":0,"h":0,"rbi":0,"avg":".000","hr":0,"k":1,"bb":0,"hbp":0,"sb":0,"lob":0,"e":2,"po":0,"a":0},{"pos":"左","name":"名嘉真 大希","ab":2,"r":1,"h":1,"rbi":0,"avg":".500","hr":0,"k":1,"bb":0,"hbp":0,"sb":0,"lob":0,"e":0,"po":1,"a":0},{"pos":"指","name":"中山 竜我","ab":3,"r":1,"h":1,"rbi":0,"avg":".333","hr":0,"k":2,"bb":0,"hbp":0,"sb":0,"lob":0,"e":0,"po":0,"a":0},{"pos":"右","name":"小椋 圭祐","ab":2,"r":0,"h":0,"rbi":0,"avg":".000","hr":0,"k":1,"bb":1,"hbp":0,"sb":0,"lob":1,"e":0,"po":3,"a":0},{"pos":"遊","name":"永森 亮光","ab":2,"r":0,"h":0,"rbi":1,"avg":".000","hr":0,"k":1,"bb":1,"hbp":0,"sb":0,"lob":0,"e":1,"po":1,"a":1},{"pos":"捕","name":"井上 尚輝","ab":3,"r":0,"h":1,"rbi":0,"avg":".333","hr":0,"k":1,"bb":0,"hbp":0,"sb":0,"lob":1,"e":1,"po":3,"a":0}],"homePitching":[{"name":"内藤 圭史","result":"","era":"0.00","ip":"3","bf":9,"np":42,"h":2,"hr":0,"sac":0,"sf":0,"k":6,"bb":0,"hbp":0,"r":0,"er":0,"wp":0},{"name":"摺石 達哉","result":"○","era":"0.00","ip":"2","bf":7,"np":31,"h":1,"hr":0,"sac":0,"sf":0,"k":3,"bb":0,"hbp":0,"r":0,"er":0,"wp":0},{"name":"茶屋野 洋輝","result":"","era":"0.00","ip":"1","bf":6,"np":19,"h":2,"hr":0,"sac":0,"sf":0,"k":0,"bb":0,"hbp":1,"r":0,"er":0,"wp":0},{"name":"川井 瑠輝也","result":"","era":"18.00","ip":"1","bf":6,"np":17,"h":2,"hr":0,"sac":0,"sf":0,"k":0,"bb":2,"hbp":0,"r":2,"er":2,"wp":0}],"awayPitching":[{"name":"二宮 衣沙貴","result":"●","era":"9.00","ip":"3","bf":17,"np":67,"h":6,"hr":0,"sac":0,"sf":2,"k":2,"bb":1,"hbp":0,"r":6,"er":3,"wp":3},{"name":"池田 翔紀","result":"","era":"0.00","ip":"1","bf":4,"np":16,"h":0,"hr":0,"sac":1,"sf":0,"k":1,"bb":1,"hbp":0,"r":0,"er":0,"wp":0},{"name":"瀧川 優祐","result":"","era":"18.00","ip":"1","bf":6,"np":19,"h":3,"hr":0,"sac":0,"sf":0,"k":0,"bb":0,"hbp":0,"r":2,"er":2,"wp":0},{"name":"足立 真彦","result":"","era":"0.00","ip":"1","bf":8,"np":30,"h":2,"hr":0,"sac":0,"sf":0,"k":0,"bb":1,"hbp":1,"r":3,"er":0,"wp":1},{"name":"新原 俊哉","result":"","era":"13.50","ip":"0.2","bf":3,"np":10,"h":1,"hr":1,"sac":0,"sf":0,"k":0,"bb":0,"hbp":0,"r":1,"er":1,"wp":0}]};
+  document.getElementById('jsonInput').value = JSON.stringify(sample, null, 2);
+}
+
+load();
+</script>
+</body>
+</html>
