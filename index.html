@@ -486,12 +486,42 @@ function copyPrompt() {
   });
 }
 
-function load() {
-  try { const d = localStorage.getItem(STORAGE_KEY); if (d) games = JSON.parse(d); } catch(e) { games = []; }
+// Supabase設定
+const SUPABASE_URL = 'https://wmulptsxzmuaqdfctund.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_xJCCIkkOeSUZsc4aAyuhcw_drJvsvbc';
+const SB_HEADERS = {
+  'Content-Type': 'application/json',
+  'apikey': SUPABASE_KEY,
+  'Authorization': 'Bearer ' + SUPABASE_KEY
+};
+
+async function load() {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/games?select=game_id,data&order=created_at.asc`, { headers: SB_HEADERS });
+    const rows = await res.json();
+    if (Array.isArray(rows)) games = rows.map(r => r.data);
+    else games = [];
+  } catch(e) { games = []; }
   render();
 }
 
-function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(games)); }
+async function save() {
+  // 全ゲームをSupabaseに同期（upsert）
+  for (const g of games) {
+    await fetch(`${SUPABASE_URL}/rest/v1/games`, {
+      method: 'POST',
+      headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates' },
+      body: JSON.stringify({ game_id: g.gameId, data: g })
+    });
+  }
+}
+
+async function deleteGameFromDB(gameId) {
+  await fetch(`${SUPABASE_URL}/rest/v1/games?game_id=eq.${gameId}`, {
+    method: 'DELETE',
+    headers: SB_HEADERS
+  });
+}
 
 function switchPage(p) {
   state.page = p;
@@ -512,7 +542,7 @@ function getAllTeams() {
   return [...s];
 }
 
-function registerGame() {
+async function registerGame() {
   const raw = document.getElementById('jsonInput').value.trim();
   const st = document.getElementById('importStatus');
   if (!raw) { showStatus(st,'JSONを貼り付けてください','error'); return; }
@@ -521,17 +551,29 @@ function registerGame() {
   catch(e) { showStatus(st,'JSONの形式が正しくありません: '+e.message,'error'); return; }
   if (!data.gameId) data.gameId = Date.now().toString();
   if (games.find(g=>g.gameId===data.gameId)) { showStatus(st,'この試合はすでに登録されています','error'); return; }
-  games.push(data);
-  save();
-  document.getElementById('jsonInput').value = '';
-  showStatus(st,'✓ 登録完了: '+(data.awayTeam||'')+'  vs  '+(data.homeTeam||''),'success');
-  render();
+
+  showStatus(st,'保存中...','info');
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/games`, {
+      method: 'POST',
+      headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates' },
+      body: JSON.stringify({ game_id: data.gameId, data: data })
+    });
+    if (!res.ok) throw new Error('保存失敗');
+    games.push(data);
+    document.getElementById('jsonInput').value = '';
+    showStatus(st,'✓ 登録完了: '+(data.awayTeam||'')+'  vs  '+(data.homeTeam||''),'success');
+    render();
+  } catch(e) {
+    showStatus(st,'エラー: '+e.message,'error');
+  }
 }
 
-function deleteGame(id) {
+async function deleteGame(id) {
   if (!confirm('この試合を削除しますか？')) return;
+  await deleteGameFromDB(id);
   games = games.filter(g=>g.gameId!==id);
-  save(); render();
+  render();
 }
 
 function showStatus(el, msg, type) { el.textContent=msg; el.className='status '+type; }
